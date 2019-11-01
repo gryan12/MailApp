@@ -7,8 +7,14 @@
 
 namespace IMAP {
 class Message {
+private: 
+	uint32_t uid; 
+	//probs be poor form to have this, will think about it
+	static struct mailimap *parent_session;  
+
 public:
-	Message(){}
+	Message(uint32_t uid); 
+	Message(); 
 	/**
 	 * Get the body of the message. You may chose to either include the headers or not.
 	 */
@@ -21,11 +27,22 @@ public:
 	 * Remove this mail from its mailbox
 	 */
 	void deleteFromMailbox();
+
+	static uint32_t parse_uid(struct mailimap_msg_att *msg_att); 
+	static char* parse_body(struct mailimap_msg_att *msg_att); 
+
+	uint32_t get_uid(); 
+
+	static struct mailimap* set_parent_session(struct mailimap *imap); 
 };
 
 class Session {
+private: 
+	struct mailimap *imap_session; 
 public:
 	Session(std::function<void()> updateUI);
+	Session();
+
 
 	/**
 	 * Get all messages in the INBOX mailbox terminated by a nullptr (like we did in class)
