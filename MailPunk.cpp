@@ -16,8 +16,7 @@ int main() {
 	Message **message_list;
 	message_list = new_session.getMessages(); 
 
-	int message_length = sizeof(*message_list)/sizeof(*message_list[0]); 
-
+	int message_length =1;  
 	std::string message_body; 
 	std::cout <<"\nMessage length: " << message_length; 
 	for (int i = 0; i <= message_length; i++) {
