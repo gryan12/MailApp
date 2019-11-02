@@ -36,10 +36,14 @@ int main() {
 		std::string field; 
 		field = message_list[i]->getField("SUBJECT"); 
 		
-		std::cout <<"\nField: " << field <<"\n"; 
+		std::cout <<"\nField:" << field <<"\n"; 
 
 	}
 
+	int no_message; 
+	no_message = new_session.get_mailbox_message_no_status(); 
+
+	std::cout <<"\nNumber of messages: " << no_message << "\n"; 
 	//message_list[1]->deleteFromMailbox(); 
 
 	return 0; 

@@ -41,10 +41,12 @@ public:
 class Session {
 private: 
 	struct mailimap *imap_session; 
+	std::string current_mailbox; 
 public:
 	Session(std::function<void()> updateUI);
 	Session();
 
+	int get_mailbox_message_no_status(); 
 
 	/**
 	 * Get all messages in the INBOX mailbox terminated by a nullptr (like we did in class)

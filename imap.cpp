@@ -17,8 +17,26 @@
 //
 using namespace IMAP;
 
+
+/* helper functions for string procesing */
+/* function to remove white spaces from string */
+std::string strip(std::string &str) {
+	str.erase(0, str.find_first_not_of(' '));
+	str.erase(str.find_last_not_of(' ')+1); 
+	return str; 
+}
+
+//std::string to cstring
+char* string_to_char_array(std::string str) {
+	int length = str.length(); 
+	char *char_array = new char[length+1]; 
+	strcpy(char_array, str.c_str()); 
+	return char_array; 
+}
+
+/*end helper functions */
+
 struct mailimap* Message::parent_session = NULL; 
-	
 
  uint32_t Message::parse_uid(struct mailimap_msg_att *msg_att) {
         clistiter *cur;
@@ -109,6 +127,7 @@ std::string Message::getBody() {
 }
 
 
+
 std::string Message::getField(std::string fieldname) {
 	struct mailimap_header_list* header_list; 
         clistiter *cur;
@@ -151,6 +170,8 @@ std::string Message::getField(std::string fieldname) {
 			std::string message_body(msg_content);
 			mailimap_fetch_list_free(fetch_result); 
 			clist_free(headers); 
+			message_body =  message_body.substr(message_body.find(":")+1); 
+			strip(message_body); 
 			return message_body; 
 		}
         }
@@ -192,6 +213,36 @@ struct mailimap* Message::set_parent_session(struct mailimap *imap) {
 
 //===========END MESSAGE==============
 
+int Session::get_mailbox_message_no_status() {
+	struct mailimap_status_att_list *status_list; 
+	struct mailimap_mailbox_data_status *mailbox_status; 
+	struct mailimap_mailbox_data_status *status_data; 
+	clistiter *cur; 
+	int res; 
+
+	status_list = mailimap_status_att_list_new_empty(); 
+	res = mailimap_status_att_list_add(status_list, 0); 
+	check_error(res, "failed to add to status list"); 
+
+	char* mailbox_arr; 
+	mailbox_arr = string_to_char_array(this->current_mailbox); 
+
+	res = mailimap_status(this->imap_session, mailbox_arr, status_list, &status_data); 
+	check_error(res, "failed to retrieve mailbox status"); 	
+
+	int return_count; 
+	return_count = clist_count(status_data->st_info_list); 
+
+	int status_value; 
+	for (cur = clist_begin(status_data->st_info_list); cur != NULL; cur = clist_next(cur)) {
+		auto status_info = (struct mailimap_status_info*)clist_content(cur); 
+		status_value = status_info->st_value; 
+		std::cout <<"\ngot to internal return\n"; 
+		return status_value; 
+	}
+	std::cout <<"\nGot to end of function\n"; 
+	return 0; 
+}
 
 Message** Session::getMessages() {
 
@@ -305,6 +356,9 @@ void Session::selectMailbox(std::string const& mailbox) {
 
         res = mailimap_select(this->imap_session, mailarr);
 	std::cout <<"\nResponse code: " << res; 
+	if (!res) {
+		this->current_mailbox = mailbox; 
+	}
 }
 
 Session::~Session() {
@@ -315,7 +369,3 @@ Session::~Session() {
 
 
 
-bool fetch() {
-
-	return true; 
-}
