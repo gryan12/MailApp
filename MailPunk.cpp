@@ -11,29 +11,37 @@ int main() {
 	new_session.login("gr1015mail", "deb252fc"); 
 	new_session.selectMailbox("INBOX"); 
 
-
-
 	std::cout<<"\nMOVING ONTO EXTRACTING MESSAGES\n"; 
-
 
 	Message **message_list;
 	message_list = new_session.getMessages(); 
 
+	int message_length = sizeof(*message_list)/sizeof(*message_list[0]); 
 
-	Message *message1; 
-	std::cout <<"\nHelo1\n"; 
-	message1 = message_list[1]; 
-	std::cout <<"\nHelo2\n"; 
+	std::string message_body; 
+	std::cout <<"\nMessage length: " << message_length; 
+	for (int i = 0; i <= message_length; i++) {
+		message_body = message_list[i]->getBody(); 
+		std::cout << "MESSAGE NUMBER: " << i <<"\n" 
+			  <<  message_body << "\n";  
+	}
 
-	std::cout << "\nprebody\n"; 
-	std::string body; 
-	std::cout << "\npostbody\n"; 
 
-	std::cout << "\nprebodycall\n"; 
-	body = message1->getBody(); 
 
-	std::cout <<"\ntest1: " << body << "\n"; 
 
+	std::cout<<"============EXPERIEMNTING HEADERS================"; 
+
+	
+	std::cout <<"\nMessage length: " << message_length; 
+	for (int i = 0; i <= message_length; i++) {
+		std::string field; 
+		field = message_list[i]->getField("SUBJECT"); 
+		
+		std::cout <<"\nField: " << field <<"\n"; 
+
+	}
+
+	//message_list[1]->deleteFromMailbox(); 
 
 	return 0; 
 }

@@ -30,6 +30,8 @@ public:
 
 	static uint32_t parse_uid(struct mailimap_msg_att *msg_att); 
 	static char* parse_body(struct mailimap_msg_att *msg_att); 
+	static char* parse_field(struct mailimap_msg_att *msg_att); 
+	
 
 	uint32_t get_uid(); 
 
