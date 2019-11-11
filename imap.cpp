@@ -255,11 +255,15 @@ Message** Session::getMessages() {
 
         set = mailimap_set_new_interval(1,0);
         fetch_type = mailimap_fetch_type_new_fetch_att_list_empty();
-        //want uid's
+	//want uids
         fetch_att = mailimap_fetch_att_new_uid();
+	//add fetch att to fetch type
         mailimap_fetch_type_new_fetch_att_list_add(fetch_type, fetch_att);
+	//make the fetch request; results stored in result
         res = mailimap_fetch(this->imap_session, set, fetch_type, &result);
+
 	check_error(res, "could not connect"); 
+
 	std::cout <<"\nResponse code: " << res; 
         //check erros :)
 	
