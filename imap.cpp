@@ -3,18 +3,18 @@
 #include <string.h>
 #include <stdio.h>
 #include <iostream> 
-//
-//
-//
-//it is becoming increasingly clear that all these fetch requests are a total waste. 
-//instead can do completely fine by having a char *message_content, a int uid, 
-//and now to think about how to deal with the flags. i feel like the session 
-//should handle deleting emails from the server, but thinking about it may taek some time
-//in many ways changing the flag to delete should be message, and then expunging
-//from server should be part of the session perhaps. 
-//
-//
-//
+
+
+
+//what about: 
+//having the prev idea of body etc headers 
+//but the fetch request(s) are made at the point of 
+//creating a message
+//i.e. parametised cosntructor takes UID and imap isession, 
+//then fills in the body. 
+//the only remaining question is how deletion is handled 
+
+
 using namespace IMAP;
 
 
@@ -27,6 +27,7 @@ std::string strip(std::string &str) {
 }
 
 //std::string to cstring
+//WARNING: Allocation
 char* string_to_char_array(std::string str) {
 	int length = str.length(); 
 	char *char_array = new char[length+1]; 
@@ -82,11 +83,11 @@ Message::Message(uint32_t uid) {
 }
 
 Message::Message() {
-	this->uid = 0; 	
+	uid = 0; 	
 }
 
 uint32_t Message::get_uid() {
-	return this->uid; 
+	return uid; 
 }
 
 //retuns the body of a message, along with the headers 
@@ -100,7 +101,7 @@ std::string Message::getBody() {
         int res;
         clist *fetch_result;
 
-        set = mailimap_set_new_single(this->uid);
+        set = mailimap_set_new_single(uid);
         fetch_type = mailimap_fetch_type_new_fetch_att_list_empty();
         section = mailimap_section_new(NULL); 
         fetch_att = mailimap_fetch_att_new_body_peek_section(section);
@@ -153,7 +154,7 @@ std::string Message::getField(std::string fieldname) {
 	header_list = mailimap_header_list_new(headers); 
 	section = mailimap_section_new_header_fields(header_list); 
 	fetch_att = mailimap_fetch_att_new_body_peek_section(section); 
-        set = mailimap_set_new_single(this->uid);
+        set = mailimap_set_new_single(uid);
         fetch_type = mailimap_fetch_type_new_fetch_att_list_empty();
         mailimap_fetch_type_new_fetch_att_list_add(fetch_type, fetch_att);
 
@@ -193,7 +194,7 @@ void Message::deleteFromMailbox() {
 	struct mailimap_store_att_flags *store_att; 
 	struct mailimap_set *set; 
 
-	set = mailimap_set_new_single(this->uid); 
+	set = mailimap_set_new_single(uid); 
 	flags = mailimap_flag_list_new_empty(); 
 	flag = mailimap_flag_new_deleted(); 
 	res = mailimap_flag_list_add(flags, flag); 
@@ -204,18 +205,26 @@ void Message::deleteFromMailbox() {
 	
 	mailimap_expunge(parent_session); 
 	mailimap_store_att_flags_free(store_att); 
+	//needed?
+	mailimap_set_free(set); 
 }
 
 struct mailimap* Message::set_parent_session(struct mailimap *imap) {
 	parent_session = imap; 
 }
 
+Message::~Message() {
+
+}
+
 
 //===========END MESSAGE==============
 
+/* DEALIGN WITH MAILBOX STATUS */ 
+/* HERE SHOULD FETCH OTHER STUFF, USE FOR ERROR CODES
+ * AND FOR POPULATING IWTH MESSAGE NUMBER AND STUFF */ 
 int Session::get_mailbox_message_no_status() {
 	struct mailimap_status_att_list *status_list; 
-	struct mailimap_mailbox_data_status *mailbox_status; 
 	struct mailimap_mailbox_data_status *status_data; 
 	clistiter *cur; 
 	int res; 
@@ -225,9 +234,11 @@ int Session::get_mailbox_message_no_status() {
 	check_error(res, "failed to add to status list"); 
 
 	char* mailbox_arr; 
-	mailbox_arr = string_to_char_array(this->current_mailbox); 
+	//allocation
+	mailbox_arr = string_to_char_array(current_mailbox); 
 
-	res = mailimap_status(this->imap_session, mailbox_arr, status_list, &status_data); 
+	//allocation
+	res = mailimap_status(imap_session, mailbox_arr, status_list, &status_data); 
 	check_error(res, "failed to retrieve mailbox status"); 	
 
 	int return_count; 
@@ -241,11 +252,17 @@ int Session::get_mailbox_message_no_status() {
 		return status_value; 
 	}
 	std::cout <<"\nGot to end of function\n"; 
+
+	//deallocation
+	mailimap_status_att_list_free(status_list); 
+	mailimap_mailbox_data_status_free(status_data); 
+	delete mailbox_arr; 
 	return 0; 
 }
 
-Message** Session::getMessages() {
 
+//NB::Net Allocation 
+bool Session::fetchMessages() {
 	struct mailimap_set *set;
         struct mailimap_fetch_type *fetch_type;
         struct mailimap_fetch_att *fetch_att;
@@ -255,66 +272,109 @@ Message** Session::getMessages() {
 
         set = mailimap_set_new_interval(1,0);
         fetch_type = mailimap_fetch_type_new_fetch_att_list_empty();
-	//want uids
+        //want uid's
         fetch_att = mailimap_fetch_att_new_uid();
-	//add fetch att to fetch type
         mailimap_fetch_type_new_fetch_att_list_add(fetch_type, fetch_att);
-	//make the fetch request; results stored in result
-        res = mailimap_fetch(this->imap_session, set, fetch_type, &result);
-
-	check_error(res, "could not connect"); 
-
-	std::cout <<"\nResponse code: " << res; 
+        res = mailimap_fetch(imap_session, set, fetch_type, &result);
+        check_error(res, "could not connect");
+        std::cout <<"\nResponse code: " << res;
         //check erros :)
-	
 
         //get the size of the result array, use to declare messages array length
         int count = 0;
         count = clist_count(result);
+	std::cout <<"\n Clist count: " << count << "\n"; 
         //list of messages to return
-        Message **messages = new Message*[count+1]; 
+        //ALLOCATION
+        messageList_ = new Message*[count+1];
 
         //final index make null pointer
-        messages[count] = NULL;
+        messageList_[count] = NULL;
 
         count = 0;
+	Message *msg_ptr;
         for (cur = clist_begin(result) ; cur != NULL ; cur = clist_next(cur)) {
-                Message *msg_ptr;
                 uint32_t uid;
                 auto msg_att = (struct mailimap_msg_att*)clist_content(cur);
+                //these functions perhaps be part of session now, or general imap function
                 uid = Message::parse_uid(msg_att);
-
-		std::cout <<"\nat UID section, uid: " << uid << "\n"; 
+                std::cout <<"\nat UID section, uid: " << uid << "\n";
 
                 //if not 0
                 if (uid) {
+                        //allocation alert
                         msg_ptr = new Message(uid);
-                        messages[count] = msg_ptr;
+                        messageList_[count] = msg_ptr;
                         count++;
-                }
+                } else {
+			std::cout << "\nInvalid uid!\n"; 
+			return false; 
+		}
         }
 
         //terminate with nullptr;
-        messages[count] = NULL;
-
-        //deallocate
+        messageList_[count] = NULL;
         mailimap_fetch_list_free(result);
+        return true;
 
-        //return message list
-        return messages;
+}
+
+void Session::deallocateMessages() {
+        size_t size = (sizeof(messageList_)/sizeof(messageList_[0]));
+
+        if (size) {
+                for (size_t i = 0; i < size; i++) {
+                        delete messageList_[i];
+                }
+        }
+        delete[] messageList_;
+}
+
+
+size_t Session::getListSize() {
+	size_t size = 0; 
+	if (messageList_ != NULL) {
+		size = (sizeof(messageList_)/sizeof(messageList_[0])); 
+	}
+	std::cout <<"\n List size: " << size <<'\n';
+	return size; 
+}
+
+bool Session::listEmpty() {
+	if (getListSize() == 0) {
+		return true; 
+	}
+	return false; 
+}
+
+//refreshes clients list of messages. 
+//first deallocates memory for previous set of 
+//messages, then fetches list of messages currently available 
+Message** Session::getMessages() {
+
+	std::cout <<"\nget called \n"; 
+	if (!listEmpty()) {
+		deallocateMessages(); 
+	}
+
+	std::cout <<"\nprefetch \n"; 
+	fetchMessages(); 
+
+	std::cout <<"\nprereturn\n"; 
+	return messageList_; 
 
 }
 
 Session::Session(std::function<void()>) {
 	std::cout <<"\nsession object created\n"; 
-	this->imap_session = mailimap_new(0,NULL); 
-	Message::set_parent_session(this->imap_session); 
+	imap_session = mailimap_new(0,NULL); 
+	Message::set_parent_session(imap_session); 
 }
 
 Session::Session() {
 	std::cout <<"\nsession object created\n"; 
-	this->imap_session = mailimap_new(0,NULL); 
-	Message::set_parent_session(this->imap_session); 
+	imap_session = mailimap_new(0,NULL); 
+	Message::set_parent_session(imap_session); 
 }
 void Session::connect(std::string const& server, size_t port) {
         int res;
@@ -322,7 +382,7 @@ void Session::connect(std::string const& server, size_t port) {
 
 	char serv[length+1]; 
 	strcpy(serv, server.c_str()); 
-        res = mailimap_socket_connect(this->imap_session, serv, port);
+        res = mailimap_socket_connect(imap_session, serv, port);
 	check_error(res, "could not connect"); 
 	std::cout <<"\nResponse code: " << res; 
 }
@@ -345,7 +405,7 @@ void Session::login(std::string const& userid, std::string const&password) {
 	strcpy (userid_arr, userid.c_str()); 
 	strcpy(password_arr, password.c_str()); 
 
-        res = mailimap_login(this->imap_session, userid_arr, password_arr);
+        res = mailimap_login(imap_session, userid_arr, password_arr);
 	check_error(res, "could not login"); 
 	std::cout <<"\nResponse code: " << res; 
 }
@@ -358,17 +418,23 @@ void Session::selectMailbox(std::string const& mailbox) {
 	char mailarr[length+1]; 
 	strcpy(mailarr, mailbox.c_str()); 
 
-        res = mailimap_select(this->imap_session, mailarr);
+        res = mailimap_select(imap_session, mailarr);
 	std::cout <<"\nResponse code: " << res; 
 	if (!res) {
-		this->current_mailbox = mailbox; 
+		current_mailbox = mailbox; 
 	}
 }
 
 Session::~Session() {
+	
+	deallocateMessages(); 
         int res;
-        res = mailimap_logout(this->imap_session);
-        mailimap_free(this->imap_session);
+	//so the below code throws an drror, this was jut called as part
+	//of the destrution of my session object 
+        //res = mailimap_logout(imap_session);
+	//check_error(res, "failure logging out "); 
+
+        mailimap_free(imap_session);
 }
 
 

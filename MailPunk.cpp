@@ -1,8 +1,30 @@
 #include "imap.hpp"
 #include <libetpan/libetpan.h> 
 #include "UI.hpp"
+#include <sstream> 
 #include <memory>
 using namespace IMAP; 
+
+
+void printMessages(Message **messageList) {
+	std::string message_body; 
+	for (size_t i = 0; messageList[i] != NULL; i++) {
+		message_body = messageList[i]->getBody(); 
+		std::cout << "MESSAGE NUMBER: " << i+1 <<"\n" 
+			  <<  message_body << "\n";  
+	}
+}
+
+
+void printHeaders(Message **messageList, std::string header) {
+	std::string headerField; 
+	for (size_t i = 0; messageList[i] != NULL; i++) {
+		headerField = messageList[i]->getField(header); 
+		std::cout << "\nMESSAGE NUMBER: " << i+1 <<"\n" 
+			  <<  headerField << "\n";  
+	}
+}
+
 int main() {
 
 	std::cout <<"\n=====TYRING SAME WITH SESSION OBJECT=======\n";
@@ -13,38 +35,37 @@ int main() {
 
 	std::cout<<"\nMOVING ONTO EXTRACTING MESSAGES\n"; 
 
-	Message **message_list;
-	message_list = new_session.getMessages(); 
+	Message **messageList; 
+	messageList = new_session.getMessages(); 
+	size_t message_length = new_session.getListSize(); 
 
-	int message_length =1;  
-	std::string message_body; 
-	std::cout <<"\nMessage length: " << message_length; 
-	for (int i = 0; i <= message_length; i++) {
-		message_body = message_list[i]->getBody(); 
-		std::cout << "MESSAGE NUMBER: " << i <<"\n" 
-			  <<  message_body << "\n";  
-	}
+	printMessages(messageList); 
+
+	messageList = new_session.getMessages(); 
+	printMessages(messageList); 
+
+	messageList = new_session.getMessages(); 
+	printMessages(messageList); 
+	messageList = new_session.getMessages(); 
+	printMessages(messageList); 
+	messageList = new_session.getMessages(); 
+	printMessages(messageList); 
+	messageList = new_session.getMessages(); 
+	printMessages(messageList); 
 
 
 
 
-	std::cout<<"============EXPERIEMNTING HEADERS================"; 
 
-	
-	std::cout <<"\nMessage length: " << message_length; 
-	for (int i = 0; i <= message_length; i++) {
-		std::string field; 
-		field = message_list[i]->getField("SUBJECT"); 
-		
-		std::cout <<"\nField:" << field <<"\n"; 
-
-	}
-
-	int no_message; 
-	no_message = new_session.get_mailbox_message_no_status(); 
-
-	std::cout <<"\nNumber of messages: " << no_message << "\n"; 
-	//message_list[1]->deleteFromMailbox(); 
+//	std::cout<<"============EXPERIEMNTING HEADERS================"; 
+//
+//	printHeaders(messageList, "SUBJECT"); 
+//
+//	int no_message; 
+//	no_message = new_session.get_mailbox_message_no_status(); 
+//
+//	std::cout <<"\nNumber of messages: " << no_message << "\n"; 
+	//messageList[1]->deleteFromMailbox(); 
 
 	return 0; 
 }
