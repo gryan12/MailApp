@@ -233,36 +233,28 @@ bool Session::fetchMessageBody(Message *message) {
 }
 
 bool Session::fetchMessageHeader(Message *message, const std::string &fieldname) {
-	std::cout <<"\nFetchHeader\n"; 
-	struct mailimap_header_list* header_list; 
-        clistiter *cur;
-        struct mailimap_set *set;
-        struct mailimap_section *section;
         size_t msg_len;
         char *msg_content;
-        struct mailimap_fetch_type *fetch_type;
-        struct mailimap_fetch_att *fetch_att;
         int res;
         clist *fetch_result;
-
-	clist *headers; 
-	headers = clist_new(); 
+	clist *headers = clist_new(); 
 	//allocation 
 	char *c_field = new char[fieldname.length()+1]; 
 	clist_append(headers, c_field); 
 	strcpy(c_field, fieldname.c_str()); 
 
-	header_list = mailimap_header_list_new(headers); 
-	section = mailimap_section_new_header_fields(header_list); 
-	fetch_att = mailimap_fetch_att_new_body_peek_section(section); 
-        set = mailimap_set_new_single(message->get_uid());
-        fetch_type = mailimap_fetch_type_new_fetch_att_list_empty();
+	struct mailimap_header_list *header_list = mailimap_header_list_new(headers); 
+	struct mailimap_section *section = mailimap_section_new_header_fields(header_list); 
+	struct mailimap_fetch_att *fetch_att = mailimap_fetch_att_new_body_peek_section(section); 
+        struct mailimap_set *set = mailimap_set_new_single(message->get_uid());
+        struct mailimap_fetch_type *fetch_type = mailimap_fetch_type_new_fetch_att_list_empty();
         mailimap_fetch_type_new_fetch_att_list_add(fetch_type, fetch_att);
 
         res = mailimap_uid_fetch(imap_session, set, fetch_type, &fetch_result);
 	check_error(res, "fetch request failed"); 
 
         //this should only be of size one, so mb add checks for this
+        clistiter *cur;
         for (cur = clist_begin(fetch_result) ; cur != NULL ; cur = clist_next(cur)) {
                 auto msg_att = (struct mailimap_msg_att*)clist_content(cur);
                 msg_content = Message::parse_body(msg_att);
@@ -307,25 +299,21 @@ void Session::deleteMessages() {
 
 
 int Session::get_mailbox_message_no_status() {
-	struct mailimap_status_att_list *status_list; 
+	struct mailimap_status_att_list *status_list = mailimap_status_att_list_new_empty(); 
 	struct mailimap_mailbox_data_status *status_data; 
 	clistiter *cur; 
 	int res; 
-
-	status_list = mailimap_status_att_list_new_empty(); 
 	res = mailimap_status_att_list_add(status_list, 0); 
 	check_error(res, "failed to add to status list"); 
 
-	char* mailbox_arr; 
 	//allocation
-	mailbox_arr = string_to_char_array(current_mailbox); 
+	char *mailbox_arr = string_to_char_array(current_mailbox); 
 
 	//allocation
 	res = mailimap_status(imap_session, mailbox_arr, status_list, &status_data); 
 	check_error(res, "failed to retrieve mailbox status"); 	
 
-	int return_count; 
-	return_count = clist_count(status_data->st_info_list); 
+	int return_count = clist_count(status_data->st_info_list); 
 
 	int status_value; 
 	for (cur = clist_begin(status_data->st_info_list); cur != NULL; cur = clist_next(cur)) {
@@ -346,22 +334,16 @@ int Session::get_mailbox_message_no_status() {
 
 //NB::Net Allocation 
 bool Session::fetchMessages() {
-	struct mailimap_set *set;
-        struct mailimap_fetch_type *fetch_type;
-        struct mailimap_fetch_att *fetch_att;
         clist *result;
         clistiter *cur;
         int res;
-
-        set = mailimap_set_new_interval(1,0);
-        fetch_type = mailimap_fetch_type_new_fetch_att_list_empty();
-        //want uid's
-        fetch_att = mailimap_fetch_att_new_uid();
+        struct mailimap_set *set = mailimap_set_new_interval(1,0);
+        struct mailimap_fetch_type *fetch_type = mailimap_fetch_type_new_fetch_att_list_empty();
+        struct mailimap_fetch_att *fetch_att = mailimap_fetch_att_new_uid();
         mailimap_fetch_type_new_fetch_att_list_add(fetch_type, fetch_att);
         res = mailimap_fetch(imap_session, set, fetch_type, &result);
+
         check_error(res, "could not connect");
-        std::cout <<"\nResponse code: " << res;
-        //check erros :)
 
         //get the size of the result array, use to declare messages array length
         int count = 0;
