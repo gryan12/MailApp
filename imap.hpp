@@ -2,6 +2,7 @@
 #define IMAP_H
 #include "imaputils.hpp"
 #include <libetpan/libetpan.h>
+#include <map>
 #include <string>
 #include <functional>
 
@@ -17,7 +18,7 @@ private:
 	Session *session_; 
 	bool delete_ = false; 
 	std::string body_; 
-	std::vector<std::string> headers_; 
+	std::map<std::string, std::string> headers_; 
 
 
 public:
@@ -51,7 +52,8 @@ public:
 	void requestDelete(mailimap *imap_session); 
 
 	void setBody(const std::string &body); 
-	void setHeaders(const std::vector<std::string> &headers); 
+	void setHeaders(const std::map<std::string, std::string> &headers); 
+	void addHeader(const std::string &header, const std::string &content); 
 	
 
 	~Message(); 
@@ -70,7 +72,7 @@ private:
 	void deleteMessages(); 
 
 	bool fetchMessageBody(Message *message); 
-	bool fetchMessageHeader(Message *message, const std::string &headerToFetch, std::string &result); 
+	bool fetchMessageHeader(Message *message, const std::string &headerToFetch); 
 public:
 	Session(std::function<void()> updateUI);
 	Session();

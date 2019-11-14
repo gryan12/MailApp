@@ -1,4 +1,6 @@
 #include "imap.hpp"
+#include <vector>
+#include <map>
 #include <string> 
 #include <string.h>
 #include <stdio.h>
@@ -95,112 +97,48 @@ Message::Message() {
 	uid = 0; 	
 }
 
-uint32_t Message::get_uid() {
-	return uid; 
-}
 /* ======================END CONSTRUCTORS======================== */ 
 
 /* ===============START FETCHING AND RETURNNG =================== */ 
 //retuns the body of a message, along with the headers 
-std::string Message::getBody() {
-        clistiter *cur;
-        struct mailimap_set *set;
-        struct mailimap_section *section;
-        char *msg_content;
-        struct mailimap_fetch_type *fetch_type;
-        struct mailimap_fetch_att *fetch_att;
-        int res;
-        clist *fetch_result;
-
-        set = mailimap_set_new_single(uid);
-        fetch_type = mailimap_fetch_type_new_fetch_att_list_empty();
-        section = mailimap_section_new(NULL); 
-        fetch_att = mailimap_fetch_att_new_body_peek_section(section);
-        mailimap_fetch_type_new_fetch_att_list_add(fetch_type, fetch_att);
-
-        res = mailimap_uid_fetch(Message::parent_session, set, fetch_type, &fetch_result);
-
-        //this should only be of size one, so mb add checks for this
-        for (cur = clist_begin(fetch_result) ; cur != NULL ; cur = clist_next(cur)) {
-                auto msg_att = (struct mailimap_msg_att*)clist_content(cur);
-                msg_content = Message::parse_body(msg_att);
-		
-		//for whatever reason, this line does not seem to work
-		if (msg_content != NULL) {
-			std::string message_body(msg_content);
-			mailimap_fetch_list_free(fetch_result); 
-			return message_body;
-		}
-        }
-
-	mailimap_fetch_list_free(fetch_result); 
-        return NULL;
-}
 
 
 
-std::string Message::getField(std::string fieldname) {
-	struct mailimap_header_list* header_list; 
-        clistiter *cur;
-        struct mailimap_set *set;
-        struct mailimap_section *section;
-        size_t msg_len;
-        char *msg_content;
-        struct mailimap_fetch_type *fetch_type;
-        struct mailimap_fetch_att *fetch_att;
-        int res;
-        clist *fetch_result;
 
-	clist *headers; 
-	headers = clist_new(); 
-	//allocation 
-
-	char *c_field = new char[fieldname.length()+1]; 
-	clist_append(headers, c_field); 
-
-
-	strcpy(c_field, fieldname.c_str()); 
-
-	header_list = mailimap_header_list_new(headers); 
-	section = mailimap_section_new_header_fields(header_list); 
-	fetch_att = mailimap_fetch_att_new_body_peek_section(section); 
-        set = mailimap_set_new_single(uid);
-        fetch_type = mailimap_fetch_type_new_fetch_att_list_empty();
-        mailimap_fetch_type_new_fetch_att_list_add(fetch_type, fetch_att);
-
-        res = mailimap_uid_fetch(Message::parent_session, set, fetch_type, &fetch_result);
-	check_error(res, "fetch request failed"); 
-
-        //this should only be of size one, so mb add checks for this
-        for (cur = clist_begin(fetch_result) ; cur != NULL ; cur = clist_next(cur)) {
-                auto msg_att = (struct mailimap_msg_att*)clist_content(cur);
-                msg_content = Message::parse_body(msg_att);
-		
-		//for whatever reason, this line does not seem to work
-		if (msg_content != NULL) {
-			std::string message_body(msg_content);
-			mailimap_fetch_list_free(fetch_result); 
-			clist_free(headers); 
-			message_body =  message_body.substr(message_body.find(":")+1); 
-			strip(message_body); 
-			return message_body; 
-		}
-        }
-
-	//deallocation; check if works
-	mailimap_fetch_list_free(fetch_result); 
-	//go back and use malloc i think 
-	clist_free(headers); 
-	return NULL; 
-}
 /* ==========SETTERS===========*/
 
 void Message::setBody(const std::string &body) {
 	body_ = body; 
 }
-void Message::setHeaders(const std::vector<std::string> &headers) {
+void Message::setHeaders(const std::map<std::string,std::string> &headers) {
 	headers_ = headers; 
 }
+void Message::addHeader(const std::string &header, const std::string &content) {
+	headers_[header] = content; 
+}
+
+/* GETTERS */ 
+
+uint32_t Message::get_uid() {
+	return uid; 
+}
+
+std::string Message::getBody() {
+	return body_; 
+}
+
+/*not quite a getter */ 
+/* if field present in header map, return that header */ 
+std::string Message::getField(std::string fieldname) {
+	if (headers_.find(fieldname) == headers_.end()) {
+		//mb throw error? 
+		return NULL; 
+	}
+	else {
+		return headers_.at(fieldname); 
+	}
+}
+
 
 /* ======================END FETCHING AND RETURNING ================== */ 
 
@@ -256,6 +194,7 @@ Message::~Message() {
 
 /* ==========SPECIFIC FETCHING ============= */ 
 bool Session::fetchMessageBody(Message *message) {
+	std::cout <<"\nFetchMessageBody\n"; 
         clistiter *cur;
         struct mailimap_set *set;
         struct mailimap_section *section;
@@ -293,7 +232,8 @@ bool Session::fetchMessageBody(Message *message) {
 	return false; 
 }
 
-bool Session::fetchMessageHeader(Message *message, const std::string &fieldname, std::string &header) {
+bool Session::fetchMessageHeader(Message *message, const std::string &fieldname) {
+	std::cout <<"\nFetchHeader\n"; 
 	struct mailimap_header_list* header_list; 
         clistiter *cur;
         struct mailimap_set *set;
@@ -335,7 +275,9 @@ bool Session::fetchMessageHeader(Message *message, const std::string &fieldname,
 			clist_free(headers); 
 			message_body =  message_body.substr(message_body.find(":")+1); 
 			strip(message_body); 
-			header = message_body; 
+			//add to map
+			message->addHeader(fieldname, message_body); 
+
 			return true; 
 		}
         }
@@ -448,14 +390,8 @@ bool Session::fetchMessages() {
                         messageList_[count] = msg_ptr;
 			std::cout <<"\nAt function calls\n"; 
 			this->fetchMessageBody(messageList_[count]); 
-
-			std::vector<std::string> fields;
-			std::string fetchedHeader; 
-			this->fetchMessageHeader(messageList_[count], "FROM", fetchedHeader); 
-			fields.push_back(fetchedHeader); 
-			this->fetchMessageHeader(messageList_[count], "SUBJECT", fetchedHeader); 
-			fields.push_back(fetchedHeader); 
-
+			this->fetchMessageHeader(messageList_[count], "SUBJECT"); 
+			this->fetchMessageHeader(messageList_[count], "FROM"); 
                         count++;
                 } else {
 			std::cout << "\nInvalid uid!\n"; 
@@ -464,8 +400,8 @@ bool Session::fetchMessages() {
         }
 
         //terminate with nullptr;
-        messageList_[count] = NULL;
         mailimap_fetch_list_free(result);
+	std::cout <<"\n IN FETCH \n"; 
         return true;
 
 }
@@ -483,12 +419,15 @@ void Session::deallocateMessages() {
 
 
 size_t Session::getListSize() {
-	size_t size = 0; 
-	if (messageList_ != NULL) {
-		size = (sizeof(messageList_)/sizeof(messageList_[0])); 
+	if (messageList_ == NULL) {
+		return 0; 
 	}
-	std::cout <<"\n List size: " << size <<'\n';
-	return size; 
+	int count = 0; 
+	while (messageList_[count] != NULL) {
+		count++; 
+	}
+	std::cout <<"\n List size: " << count <<'\n';
+	return count; 
 }
 
 bool Session::listEmpty() {

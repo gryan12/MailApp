@@ -27,6 +27,7 @@ void printHeaders(Message **messageList, std::string header) {
 
 int main() {
 
+	int res; 
 	std::cout <<"\n=====TYRING SAME WITH SESSION OBJECT=======\n";
 	Session new_session; 
 	new_session.connect("mailpunk.lsds.uk", 143); 
@@ -38,20 +39,15 @@ int main() {
 	Message **messageList; 
 	messageList = new_session.getMessages(); 
 	size_t message_length = new_session.getListSize(); 
+	std::cout <<"\nMessage length " << message_length; 
 
 	printMessages(messageList); 
 
-	messageList = new_session.getMessages(); 
-	printMessages(messageList); 
+	std::cout <<"\nHello this is seg fault test\n"; 
 
-	messageList = new_session.getMessages(); 
-	printMessages(messageList); 
-	messageList = new_session.getMessages(); 
-	printMessages(messageList); 
-	messageList = new_session.getMessages(); 
-	printMessages(messageList); 
-	messageList = new_session.getMessages(); 
-	printMessages(messageList); 
+	printHeaders(messageList, "FROM"); 
+	printHeaders(messageList, "SUBJECT"); 
+
 
 
 
@@ -65,9 +61,9 @@ int main() {
 //	no_message = new_session.get_mailbox_message_no_status(); 
 //
 //	std::cout <<"\nNumber of messages: " << no_message << "\n"; 
-	//messageList[1]->deleteFromMailbox(); 
+      //messageList[1]->deleteFromMailbox(); 
 
-	return 0; 
+      return 0; 
 }
 
 
