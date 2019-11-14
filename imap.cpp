@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <iostream> 
+#include <functional>
 
 
 
@@ -147,7 +148,7 @@ std::string Message::getField(std::string fieldname) {
 //i feel like it woud be better if this was somehow handled by session byt im not really sure how
 //that would work 
 void Message::deleteFromMailbox() {
-	delete_ = true; 
+	session_->deleteMessage(this); 
 }
 
 //make bool 
@@ -296,6 +297,29 @@ void Session::deleteMessages() {
 }
 
 
+void Session::deleteMessage(Message *message) {
+	int res; 
+	struct mailimap_set *set = mailimap_set_new_single(message->get_uid()); 
+	struct mailimap_flag_list *flags = mailimap_flag_list_new_empty(); 
+	struct mailimap_flag *flag = mailimap_flag_new_deleted(); 
+	struct mailimap_store_att_flags *store_att; 
+
+	res = mailimap_flag_list_add(flags, flag); 
+	check_error(res, "error adding flag to flag list"); 
+	store_att = mailimap_store_att_flags_new_set_flags(flags); 
+
+	res = mailimap_uid_store(imap_session, set, store_att); 
+	check_error(res, "store request unsuccessful"); 
+	
+	mailimap_expunge(imap_session); 
+	mailimap_store_att_flags_free(store_att); 
+	//needed?
+	mailimap_set_free(set); 
+
+	if (updateUI_ != NULL) {
+		updateUI_(); 
+	}
+}
 
 
 int Session::get_mailbox_message_no_status() {
@@ -319,10 +343,8 @@ int Session::get_mailbox_message_no_status() {
 	for (cur = clist_begin(status_data->st_info_list); cur != NULL; cur = clist_next(cur)) {
 		auto status_info = (struct mailimap_status_info*)clist_content(cur); 
 		status_value = status_info->st_value; 
-		std::cout <<"\ngot to internal return\n"; 
 		return status_value; 
 	}
-	std::cout <<"\nGot to end of function\n"; 
 
 	//deallocation
 	mailimap_status_att_list_free(status_list); 
@@ -348,7 +370,6 @@ bool Session::fetchMessages() {
         //get the size of the result array, use to declare messages array length
         int count = 0;
         count = clist_count(result);
-	std::cout <<"\n Clist count: " << count << "\n"; 
         //list of messages to return
         //ALLOCATION
         messageList_ = new Message*[count+1];
@@ -363,14 +384,12 @@ bool Session::fetchMessages() {
                 auto msg_att = (struct mailimap_msg_att*)clist_content(cur);
                 //these functions perhaps be part of session now, or general imap function
                 uid = Message::parse_uid(msg_att);
-                std::cout <<"\nat UID section, uid: " << uid << "\n";
 
                 //if not 0
                 if (uid) {
                         //allocation alert
                         msg_ptr = new Message(uid);
                         messageList_[count] = msg_ptr;
-			std::cout <<"\nAt function calls\n"; 
 			this->fetchMessageBody(messageList_[count]); 
 			this->fetchMessageHeader(messageList_[count], "SUBJECT"); 
 			this->fetchMessageHeader(messageList_[count], "FROM"); 
@@ -424,32 +443,17 @@ bool Session::listEmpty() {
 //messages, then fetches list of messages currently available 
 Message** Session::getMessages() {
 
-	deleteMessages(); 	
-
-	std::cout <<"\nget called \n"; 
-	if (!listEmpty()) {
+	if (getListSize() != 0) {
+		std::cout <<"wut"; 
 		deallocateMessages(); 
 	}
 
-	std::cout <<"\nprefetch \n"; 
 	fetchMessages(); 
 
-	std::cout <<"\nprereturn\n"; 
 	return messageList_; 
 
 }
 
-Session::Session(std::function<void()>) {
-	std::cout <<"\nsession object created\n"; 
-	imap_session = mailimap_new(0,NULL); 
-	Message::set_parent_session(imap_session); 
-}
-
-Session::Session() {
-	std::cout <<"\nsession object created\n"; 
-	imap_session = mailimap_new(0,NULL); 
-	Message::set_parent_session(imap_session); 
-}
 void Session::connect(std::string const& server, size_t port) {
         int res;
 	int length = server.length(); 
@@ -499,6 +503,20 @@ void Session::selectMailbox(std::string const& mailbox) {
 	}
 }
 
+Session::Session(std::function<void()> updateUI) {
+	updateUI_ = updateUI; 
+	imap_session = mailimap_new(0,NULL); 
+	Message::set_parent_session(imap_session); 
+	messageList_= NULL; 
+}
+
+
+Session::Session() {
+	std::cout <<"\nsession object created\n"; 
+	imap_session = mailimap_new(0,NULL); 
+	Message::set_parent_session(imap_session); 
+	messageList_= NULL; 
+}
 Session::~Session() {
 	
 	deallocateMessages(); 

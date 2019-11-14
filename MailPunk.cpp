@@ -10,7 +10,7 @@ void printMessages(Message **messageList) {
 	std::string message_body; 
 	for (size_t i = 0; messageList[i] != NULL; i++) {
 		message_body = messageList[i]->getBody(); 
-		std::cout << "MESSAGE NUMBER: " << i+1 <<"\n" 
+		std::cout << i+1 <<"\t" 
 			  <<  message_body << "\n";  
 	}
 }
@@ -20,7 +20,7 @@ void printHeaders(Message **messageList, std::string header) {
 	std::string headerField; 
 	for (size_t i = 0; messageList[i] != NULL; i++) {
 		headerField = messageList[i]->getField(header); 
-		std::cout << "\nMESSAGE NUMBER: " << i+1 <<"\n" 
+		std::cout << i+1 <<"\t" 
 			  <<  headerField << "\n";  
 	}
 }
@@ -49,6 +49,13 @@ int main() {
 	printHeaders(messageList, "SUBJECT"); 
 
 
+	size_t size = new_session.getListSize(); 
+	std::cout <<"\nSIZE PRE DELETE: " << size << "\n"; 
+	new_session.deleteMessage(messageList[size-1]); 
+
+	messageList = new_session.getMessages(); 
+	printMessages(messageList); 
+	
 
 
 

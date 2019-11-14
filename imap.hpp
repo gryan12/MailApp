@@ -64,7 +64,6 @@ private:
 	struct mailimap *imap_session; 
 	std::string current_mailbox; 
 	Message** messageList_; 
-	bool listEmpty();
 
 	/* member functions */ 
 	void deallocateMessages(); 
@@ -72,11 +71,15 @@ private:
 
 	bool fetchMessageBody(Message *message); 
 	bool fetchMessageHeader(Message *message, const std::string &headerToFetch); 
+	std::function<void()> updateUI_; 
 public:
 	Session(std::function<void()> updateUI);
 	Session();
 
+	void deleteMessage(Message *message); 
+
 	size_t getListSize(); 
+	bool listEmpty(); 
 
 	int get_mailbox_message_no_status(); 
 
