@@ -193,7 +193,14 @@ std::string Message::getField(std::string fieldname) {
 	clist_free(headers); 
 	return NULL; 
 }
+/* ==========SETTERS===========*/
 
+void Message::setBody(const std::string &body) {
+	body_ = body; 
+}
+void Message::setHeaders(const std::vector<std::string> &headers) {
+	headers_ = headers; 
+}
 
 /* ======================END FETCHING AND RETURNING ================== */ 
 
@@ -248,7 +255,7 @@ Message::~Message() {
 
 
 /* ==========SPECIFIC FETCHING ============= */ 
-bool Session::fetchMessageBody(Message *message, std::string &body) {
+bool Session::fetchMessageBody(Message *message) {
         clistiter *cur;
         struct mailimap_set *set;
         struct mailimap_section *section;
@@ -275,7 +282,8 @@ bool Session::fetchMessageBody(Message *message, std::string &body) {
 		//for whatever reason, this line does not seem to work
 		if (msg_content != NULL) {
 			std::string message_body(msg_content);
-			body = message_body; 
+			message->setBody(message_body);
+
 			mailimap_fetch_list_free(fetch_result); 
 			return true;
 		}
@@ -438,6 +446,16 @@ bool Session::fetchMessages() {
                         //allocation alert
                         msg_ptr = new Message(uid);
                         messageList_[count] = msg_ptr;
+			std::cout <<"\nAt function calls\n"; 
+			this->fetchMessageBody(messageList_[count]); 
+
+			std::vector<std::string> fields;
+			std::string fetchedHeader; 
+			this->fetchMessageHeader(messageList_[count], "FROM", fetchedHeader); 
+			fields.push_back(fetchedHeader); 
+			this->fetchMessageHeader(messageList_[count], "SUBJECT", fetchedHeader); 
+			fields.push_back(fetchedHeader); 
+
                         count++;
                 } else {
 			std::cout << "\nInvalid uid!\n"; 

@@ -16,7 +16,7 @@ private:
 	static struct mailimap *parent_session;  
 	Session *session_; 
 	bool delete_ = false; 
-	std::string messageContents_; 
+	std::string body_; 
 	std::vector<std::string> headers_; 
 
 
@@ -69,7 +69,7 @@ private:
 	void deallocateMessages(); 
 	void deleteMessages(); 
 
-	bool fetchMessageBody(Message *message, std::string &body); 
+	bool fetchMessageBody(Message *message); 
 	bool fetchMessageHeader(Message *message, const std::string &headerToFetch, std::string &result); 
 public:
 	Session(std::function<void()> updateUI);
