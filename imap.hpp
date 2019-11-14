@@ -6,6 +6,7 @@
 #include <functional>
 
 namespace IMAP {
+class Session; 
 class Message {
 private: 
 	uint32_t uid; 
@@ -13,6 +14,11 @@ private:
 	//when you think about it though, it does amke sense; in this program
 	//there should only ever be one session object active  
 	static struct mailimap *parent_session;  
+	Session *session_; 
+	bool delete_ = false; 
+	std::string messageContents_; 
+	std::vector<std::string> headers_; 
+
 
 public:
 	Message(uint32_t uid); 
@@ -40,17 +46,31 @@ public:
 
 	static struct mailimap* set_parent_session(struct mailimap *imap); 
 
+	bool shouldDelete(); 
+
+	void requestDelete(mailimap *imap_session); 
+
+	void setBody(const std::string &body); 
+	void setHeaders(const std::vector<std::string> &headers); 
+	
+
 	~Message(); 
 };
 
 class Session {
 private: 
+	/* data members */ 
 	struct mailimap *imap_session; 
 	std::string current_mailbox; 
 	Message** messageList_; 
-
 	bool listEmpty();
+
+	/* member functions */ 
 	void deallocateMessages(); 
+	void deleteMessages(); 
+
+	bool fetchMessageBody(Message *message, std::string &body); 
+	bool fetchMessageHeader(Message *message, const std::string &headerToFetch, std::string &result); 
 public:
 	Session(std::function<void()> updateUI);
 	Session();
