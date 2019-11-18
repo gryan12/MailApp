@@ -40,11 +40,7 @@ char* string_to_char_array(std::string str) {
 
 /*end helper functions */
 
-struct mailimap* Message::parent_session = NULL; 
 
-bool Message::shouldDelete() {
-	return delete_;  
-}
 
 /* =======START STATIC PARSING FUNCTIONS ================ */ 
  uint32_t Message::parse_uid(struct mailimap_msg_att *msg_att) {
@@ -151,35 +147,9 @@ void Message::deleteFromMailbox() {
 	session_->deleteMessage(this); 
 }
 
-//make bool 
-void Message::requestDelete(mailimap *imap_session) {
-	int res; 
-	struct mailimap_flag_list *flags; 
-	struct mailimap_flag *flag; 
-	struct mailimap_store_att_flags *store_att; 
-	struct mailimap_set *set; 
-
-	set = mailimap_set_new_single(uid); 
-	flags = mailimap_flag_list_new_empty(); 
-	flag = mailimap_flag_new_deleted(); 
-	res = mailimap_flag_list_add(flags, flag); 
-	store_att = mailimap_store_att_flags_new_set_flags(flags); 
-
-	res = mailimap_uid_store(imap_session, set, store_att); 
-	check_error(res, "store request unsuccessful"); 
-	
-	mailimap_expunge(imap_session); 
-	mailimap_store_att_flags_free(store_att); 
-	//needed?
-	mailimap_set_free(set); 
-}
-
 
 /* =========================END DELETING==================*/
 
-struct mailimap* Message::set_parent_session(struct mailimap *imap) {
-	parent_session = imap; 
-}
 
 Message::~Message() {
 
@@ -221,6 +191,7 @@ bool Session::fetchMessageBody(Message *message) {
 		
 		//for whatever reason, this line does not seem to work
 		if (msg_content != NULL) {
+			std::cout <<"\nDEBUG HELP\n"; 
 			std::string message_body(msg_content);
 			message->setBody(message_body);
 
@@ -282,20 +253,6 @@ bool Session::fetchMessageHeader(Message *message, const std::string &fieldname)
 	return false; 
 }
 
-void Session::deleteMessages() {
-	if (messageList_ == NULL) {
-		return; 
-	}
-	std::cout << " \n in delete \n"; 
-	clist *toDelete; 
-	for (int i = 0; messageList_[i] != NULL; i++) {
-		if (messageList_[i]->shouldDelete()) {
-			messageList_[i]->requestDelete(imap_session); 
-		}
-	}
-	mailimap_expunge(imap_session); 
-}
-
 
 void Session::deleteMessage(Message *message) {
 	int res; 
@@ -322,7 +279,7 @@ void Session::deleteMessage(Message *message) {
 }
 
 
-int Session::get_mailbox_message_no_status() {
+int Session::fetchMailboxNumberStatus() {
 	struct mailimap_status_att_list *status_list = mailimap_status_att_list_new_empty(); 
 	struct mailimap_mailbox_data_status *status_data; 
 	clistiter *cur; 
@@ -356,6 +313,12 @@ int Session::get_mailbox_message_no_status() {
 
 //NB::Net Allocation 
 bool Session::fetchMessages() {
+	int messageNumber; 
+	messageNumber = fetchMailboxNumberStatus(); 
+	if (messageNumber == 0) {
+		std::cout <<"\nNo messages in the malbox\n"; 
+		return true; 
+	}
         clist *result;
         clistiter *cur;
         int res;
@@ -367,16 +330,17 @@ bool Session::fetchMessages() {
 
         check_error(res, "could not connect");
 
-        //get the size of the result array, use to declare messages array length
-        int count = 0;
-        count = clist_count(result);
+       // //get the size of the result array, use to declare messages array length
+       // int count = 0;
+       // count = clist_count(result);
         //list of messages to return
         //ALLOCATION
-        messageList_ = new Message*[count+1];
+        messageList_ = new Message*[messageNumber+1];
 
         //final index make null pointer
-        messageList_[count] = NULL;
+        messageList_[messageNumber] = NULL;
 
+	int count; 
         count = 0;
 	Message *msg_ptr;
         for (cur = clist_begin(result) ; cur != NULL ; cur = clist_next(cur)) {
@@ -391,8 +355,8 @@ bool Session::fetchMessages() {
                         msg_ptr = new Message(uid);
                         messageList_[count] = msg_ptr;
 			this->fetchMessageBody(messageList_[count]); 
-			this->fetchMessageHeader(messageList_[count], "SUBJECT"); 
-			this->fetchMessageHeader(messageList_[count], "FROM"); 
+			this->fetchMessageHeader(messageList_[count], "Subject"); 
+			this->fetchMessageHeader(messageList_[count], "From"); 
                         count++;
                 } else {
 			std::cout << "\nInvalid uid!\n"; 
@@ -471,6 +435,7 @@ void to_char_array(std::string const& string, char *char_array) {
 
 
 void Session::login(std::string const& userid, std::string const&password) {
+	std::cout <<"\nAttempting to login\n"; 
         int res;
 	int useridlength, passlength; 
 
@@ -504,9 +469,9 @@ void Session::selectMailbox(std::string const& mailbox) {
 }
 
 Session::Session(std::function<void()> updateUI) {
+	std::cout <<"\nattempgin tot call parametised constructor \n"; 
 	updateUI_ = updateUI; 
 	imap_session = mailimap_new(0,NULL); 
-	Message::set_parent_session(imap_session); 
 	messageList_= NULL; 
 }
 
@@ -514,7 +479,6 @@ Session::Session(std::function<void()> updateUI) {
 Session::Session() {
 	std::cout <<"\nsession object created\n"; 
 	imap_session = mailimap_new(0,NULL); 
-	Message::set_parent_session(imap_session); 
 	messageList_= NULL; 
 }
 Session::~Session() {

@@ -10,13 +10,9 @@ namespace IMAP {
 class Session; 
 class Message {
 private: 
+	/*data members*/
 	uint32_t uid; 
-	//probs be poor form to have this, will think about it
-	//when you think about it though, it does amke sense; in this program
-	//there should only ever be one session object active  
-	static struct mailimap *parent_session;  
 	Session *session_; 
-	bool delete_ = false; 
 	std::string body_; 
 	std::map<std::string, std::string> headers_; 
 
@@ -45,10 +41,6 @@ public:
 	uint32_t get_uid(); 
 
 	static struct mailimap* set_parent_session(struct mailimap *imap); 
-
-	bool shouldDelete(); 
-
-	void requestDelete(mailimap *imap_session); 
 
 	void setBody(const std::string &body); 
 	void setHeaders(const std::map<std::string, std::string> &headers); 
@@ -81,7 +73,7 @@ public:
 	size_t getListSize(); 
 	bool listEmpty(); 
 
-	int get_mailbox_message_no_status(); 
+	int fetchMailboxNumberStatus(); 
 
 	/**
 	 * Get all messages in the INBOX mailbox terminated by a nullptr (like we did in class)
