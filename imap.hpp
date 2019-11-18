@@ -18,7 +18,7 @@ private:
 
 
 public:
-	Message(uint32_t uid); 
+	Message(uint32_t uid, Session *session); 
 	Message(); 
 	/**
 	 * Get the body of the message. You may chose to either include the headers or not.

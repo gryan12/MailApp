@@ -86,8 +86,9 @@ char* string_to_char_array(std::string str) {
 /* ===============END STATIC PARSING FUNCTIONS ================= */ 
 
 /* =================START CONSTRUCTORS ================= */ 
-Message::Message(uint32_t uid) {
+Message::Message(uint32_t uid, Session *session) {
 	this->uid = uid; 	
+	session_ = session; 
 }
 
 Message::Message() {
@@ -165,7 +166,6 @@ Message::~Message() {
 
 /* ==========SPECIFIC FETCHING ============= */ 
 bool Session::fetchMessageBody(Message *message) {
-	std::cout <<"\nFetchMessageBody\n"; 
         clistiter *cur;
         struct mailimap_set *set;
         struct mailimap_section *section;
@@ -352,7 +352,7 @@ bool Session::fetchMessages() {
                 //if not 0
                 if (uid) {
                         //allocation alert
-                        msg_ptr = new Message(uid);
+                        msg_ptr = new Message(uid, this);
                         messageList_[count] = msg_ptr;
 			this->fetchMessageBody(messageList_[count]); 
 			this->fetchMessageHeader(messageList_[count], "Subject"); 
