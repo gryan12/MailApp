@@ -6,20 +6,37 @@
 #include <string>
 #include <functional>
 
+/*two classes: Message, Session. 
+ * to separate concerns, all communicaiton with server handled
+ * through the session class. 
+ * for message functions that require server communication such as deletion
+ * a poiter to a session object is used. 
+ */
 namespace IMAP {
+
 class Session; 
 class Message {
 private: 
 	/*data members*/
-	uint32_t uid; 
-	Session *session_; 
+	/* unique id number of message */
+	uint32_t uid_; 
+
+	//the body of the message
 	std::string body_; 
+
+	//map of headers vs header-content
 	std::map<std::string, std::string> headers_; 
 
+	//session object that called message constructor
+	Session *session_; 
 
 public:
+	/*parametised constructor. body_ and headers_ are set to null*/ 
 	Message(uint32_t uid, Session *session); 
+
+	/*default*/
 	Message(); 
+
 	/**
 	 * Get the body of the message. You may chose to either include the headers or not.
 	 */
@@ -33,19 +50,18 @@ public:
 	 */
 	void deleteFromMailbox();
 
-	/* static functions for parsing message data from mailimap msg_att structures */
-	static uint32_t parse_uid(struct mailimap_msg_att *msg_att); 
-	static char* parse_body(struct mailimap_msg_att *msg_att); 
-	static char* parse_field(struct mailimap_msg_att *msg_att); 
+	/* static functions for parsing data from a mailimap_msg_att struct*/
+	static uint32_t parseUid(struct mailimap_msg_att *msg_att); 
 
-	uint32_t get_uid(); 
+	static char* parseBodySection(struct mailimap_msg_att *msg_att); 
 
-	static struct mailimap* set_parent_session(struct mailimap *imap); 
+	//getter
+	uint32_t getUid(); 
 
+	//setters
 	void setBody(const std::string &body); 
 	void setHeaders(const std::map<std::string, std::string> &headers); 
 	void addHeader(const std::string &header, const std::string &content); 
-	
 
 	~Message(); 
 };
@@ -53,34 +69,64 @@ public:
 class Session {
 private: 
 	/* data members */ 
-	struct mailimap *imap_session; 
-	std::string current_mailbox; 
+	struct mailimap *imapSession_; 
+
+	/*currently selected mailbox in imapSession_ */
+	std::string currentMailbox_; 
+
+	/*array of pointers to message objects that are in
+	 * selected mailbox of imapSession_ */
 	Message** messageList_; 
 
-	/* member functions */ 
-	void deallocateMessages(); 
-	void deleteMessages(); 
-
-	bool fetchMessageBody(Message *message); 
-	bool fetchMessageHeader(Message *message, const std::string &headerToFetch); 
+	/* function passed to parametised constructor. */ 
 	std::function<void()> updateUI_; 
+
+	/* member functions */ 
+	/* frees heap memory allocates for the messageList */
+	void deallocateMessages(); 
+
+	/*creates fetch request for the body of @message */ 
+	bool fetchMessageBody(Message *message); 
+
+	/* creates fetch request for the header desribed by @headerToFetch for 
+	 * @message */ 
+	bool fetchMessageHeader(Message *message, const std::string &headerToFetch); 
+
 public:
+	/*fetches the subject and from headers for @message */ 
+	bool fetchHeaders(Message *message); 
+
+	/*parametised constructor */ 
 	Session(std::function<void()> updateUI);
+	/*default constructor*/ 
 	Session();
 
+	/*sets delete flag for @message and expunges
+	 * the mailbox */ 
 	void deleteMessage(Message *message); 
 
+	/*retuns the size of messageList_ */ 
 	size_t getListSize(); 
+
+	/*returns true if messageList_ is null or contains
+	 * only null pointers */ 
 	bool listEmpty(); 
 
+	/*returns the number of messages in currentMailbox_*/ 
 	int fetchMailboxNumberStatus(); 
 
-	/**
-	 * Get all messages in the INBOX mailbox terminated by a nullptr (like we did in class)
-	 */
+	
+	/* first deallocates messageList_(if not null), then generates new fetch request for
+	 * messages and returns messageList_ */ 
 	Message** getMessages();
 
+	/*requests the UIDs for all messages in currentMailbox_, then makes
+	 * fetch requests for the body and headers of these messages. responses used to 
+	 * initialise message objects on heap, pointers stored in messageList_*/ 
 	bool fetchMessages(); 
+
+	/*makes fetch request for envelope of a given message */ 
+	bool fetchEnvelope(Message *message); 
 
 
 	/**
